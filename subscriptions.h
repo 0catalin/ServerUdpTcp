@@ -19,8 +19,6 @@ class Subscription {
 
 
 
-
-
 struct userIdSubscriptions {
     std::vector<Subscription*> subscriptions;
     bool active;
@@ -40,13 +38,11 @@ struct pollAdjustable {
     int nfds;
     int maxSize;
 
-    void addFd(int fd);
-    void freePoll();
+    int addFd(int fd);
     void removeLast(int fd);
     void remove(int fd);
     void freeMemory();
 };
-
 
 
 
