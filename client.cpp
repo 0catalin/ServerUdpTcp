@@ -14,15 +14,11 @@
 #include "subscriptions.h"
 
 
-
-struct pollAdjustable pollStruct;
-
-
 bool validateMessage(char* str) {
     if (str[0] != ' ')
         return false;
     for (size_t i = 1; i < strlen(str); i++) {
-        if (str[i] == ' ')
+        if (str[i] == ' ' || (str[i] == str[i + 1] && str[i] == '/'))
             return false;
     }
     if (str[strlen(str) - 1] == ' ')
@@ -51,7 +47,7 @@ int main(int argc, char* argv[]) {
 
     sendTcp(socket_cli, argv[1]);
 
-    pollStruct = initPoll();
+    struct pollAdjustable pollStruct = initPoll();
     pollStruct.addFd(STDIN_FILENO);
 
     pollStruct.addFd(socket_cli);

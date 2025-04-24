@@ -23,7 +23,6 @@ static const char *IP = "127.0.0.1";
 
 
 
-
 std::string convertTo2Decimals(uint16_t elem) {
     std::string s = std::to_string(elem * 1.0 / 100);
     size_t dot = s.find('.');
@@ -34,123 +33,21 @@ std::string convertTo2Decimals(uint16_t elem) {
 }
 
 
-// void sendTcp(int socketFd, const char* str) {
-//     int initial = strlen(str);
-// 	int res = 999;
-//     int sendLen = 0;
-//     while (res > 0 && sendLen < initial) {
-// 		res = send(socketFd, str + sendLen, initial - sendLen, 0);
-// 		sendLen += res;
-// 	}
-// }
-
-
-// struct pollAdjustable {
-//     struct pollfd* pollfds;
-//     int nfds;
-//     int maxSize;
-
-
-//     void addFd(int fd) {
-//         if (nfds == maxSize) {
-//             pollfds = (struct pollfd*)realloc(pollfds, maxSize * 2 * sizeof(struct pollfd));
-//             maxSize = maxSize * 2;
-//         }
-//         pollfds[nfds].fd = fd;
-//         pollfds[nfds].events = POLLIN;
-//         nfds++;
-//     }
-
-//     void freePoll() {
-//         free(pollfds);
-//         nfds = 0;
-//         maxSize = 0;
-//     }
-
-//     void removeLast(int fd) {
-//         close(fd);
-//         nfds--;
-//     }
-
-//     void remove(int fd) {
-//         for (int i = 0; i < nfds; ++i) {
-//             if (pollfds[i].fd == fd) {
-//                 nfds--;
-//                 close(fd);
-//                 memmove(&pollfds[i], &pollfds[i + 1], (nfds - i) * sizeof(struct pollfd));
-//                 return;
-//             }
-//         }
-//     }
-
-//     void freeMemory() {
-//         for (int i = 1; i < nfds; i++) {
-//             close(pollfds[i].fd);
-//         }
-//         free(pollfds);
-//         pollfds = nullptr;
-//         nfds = 0;
-//         maxSize = 0;
-//     }
-// };
-
-
-// struct pollAdjustable initPoll() {
-//     struct pollAdjustable res;
-//     res.pollfds = malloc(sizeof(struct pollfd) * 4);
-//     res.nfds = 0;
-//     res.maxSize = 4;
-//     return res;
-// }
-
-
-std::unordered_set<std::string> userIdSet;
-std::unordered_map<std::string, userIdSubscriptions> userSubscriptions;
-std::unordered_map<int, std::string> fdsToUsers; 
 struct pollAdjustable pollStruct;
 
 
-// std::string applicationProtocol(int fd) {
-//     uint16_t payload_len;
-//     int rc, res = 999, recv_len = 0;
-//     char some_buffer[1600];
 
-//     rc = recv(fd, &payload_len, 2, MSG_WAITALL);
-
-//     if (rc == 0) { // can't happen when we connect the first time
-//         pollStruct.remove(fd);
-//         return "";
-//     }
-
-//     DIE(rc < 0, "error in receiving"); // maybe not die here???
-//     payload_len = ntohs(payload_len);
-
-
-//     while (res > 0 && recv_len != payload_len) {
-//         res = recv(fd, some_buffer + recv_len, payload_len - recv_len, 0);
-//         recv_len += res;
-//         if (res == 0) { // can't happen when we connect the first time
-//             pollStruct.remove(fd);
-//             return "";
-//         }
-//     }
-
-//     some_buffer[payload_len] = '\0';
-//     // if (payload_len == 0) { // can't happen when we connect the first time, only if the user inputs us that
-//     //     return "";
-//     // }
-//     std::string buff = std::string(some_buffer);
-//     return buff;
-// }
-
-
-void shutdown_server(int /*signum*/) {
+void shutdown_server(int signum) {
+    std::cerr << "\nWe received signal " << signum << " the server and its clients will be shut down" << std::endl;
     pollStruct.freeMemory();
-    DIE(1, "forced shutdown :)");
+    DIE(1, "forced shutdown :) ");
 }
 
 
-std::string manageUdp(void* buf, struct sockaddr_in* from) {
+std::string manageUdp(void* buf, struct sockaddr_in* from, int size) {
+    if (size < 51)
+        return "";
+
     char topic[51];
     uint8_t datatype;
     char ip_str[16] = {0};
@@ -167,21 +64,31 @@ std::string manageUdp(void* buf, struct sockaddr_in* from) {
     uint8_t sign_byte = *((uint8_t*)content);
  
     if (datatype == 0) {
+        if (size != 56)
+            return "";
         result = result + "INT - ";
         uint32_t elem = ntohl(*((uint32_t*)(&content[1])));
         if (sign_byte == 0) {
             result = result + std::to_string(elem);
         } else if (sign_byte == 1) {
-            result = result + "-" + std::to_string(elem);
+            if (elem != 0)
+                result = result + "-" + std::to_string(elem);
+            else
+                result = result + std::to_string(elem);
+
         } else {
             return "";
             // DROP THE PACKET
         }
     } else if (datatype == 1) {
+        if (size != 53)
+            return "";
         result = result + "SHORT_REAL - ";
         uint16_t elem = ntohs(*(uint16_t*)content);
-        result = result + std::to_string(elem);
+        result = result + std::to_string(elem * 1.0 / 100);
     } else if (datatype == 2) {
+        if (size != 57)
+            return "";
         result = result + "FLOAT - ";
         uint32_t number = ntohl(*(uint32_t*)(&content[1]));
         uint8_t power = *(uint8_t*)(&content[5]);
@@ -204,8 +111,7 @@ std::string manageUdp(void* buf, struct sockaddr_in* from) {
         // DROP THE PACKET!!!
     }
 
-    return (std::to_string(htons((short)result.size())) + result);
-
+    return result;
 }
 
 
@@ -218,9 +124,6 @@ int main(int argc, char *argv[]) {
 
     setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
-    std::signal(SIGINT, shutdown_server);
-    std::signal(SIGTERM, shutdown_server);
-    std::signal(SIGQUIT, shutdown_server);
 
     int rc, connfd;
     struct sockaddr_in cli;
@@ -231,6 +134,10 @@ int main(int argc, char *argv[]) {
     char stdin_buffer[11];
     char udp_recv[1700];
     char topic[51];
+
+    std::unordered_set<std::string> userIdSet;
+    std::unordered_map<std::string, userIdSubscriptions> userSubscriptions;
+    std::unordered_map<int, std::string> fdsToUsers;
 
 
 
@@ -254,6 +161,9 @@ int main(int argc, char *argv[]) {
     rc = setsockopt(udp_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
 	DIE(rc < 0, "set socket to restart server quickly after failure");
 
+    std::signal(SIGINT, shutdown_server);
+    std::signal(SIGTERM, shutdown_server);
+    std::signal(SIGQUIT, shutdown_server);
 
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
@@ -298,7 +208,7 @@ int main(int argc, char *argv[]) {
                     char ip_str[16] = {0};
                     inet_ntop(AF_INET, &(cli.sin_addr), ip_str, 16);
                     std::cout << "New client " << buff << " connected from " << ip_str << ":" << ntohs(cli.sin_port) << std::endl;
-                    
+
                     userIdSet.insert(buff);
                     userSubscriptions[buff] = userIdSubscriptions(true, connfd);
                     fdsToUsers[connfd] = buff;
@@ -309,7 +219,7 @@ int main(int argc, char *argv[]) {
 
                     char ip_str[16] = {0};
                     inet_ntop(AF_INET, &(cli.sin_addr), ip_str, 16);
-                    std::cout << "Old client " << buff << " connected from " << ip_str << ":" << ntohs(cli.sin_port) << std::endl;
+                    std::cout << "New client " << buff << " connected from " << ip_str << ":" << ntohs(cli.sin_port) << std::endl;
                     userSubscriptions[buff].active = true;
                     userSubscriptions[buff].fd = connfd;
                     fdsToUsers[connfd] = buff;
@@ -322,12 +232,14 @@ int main(int argc, char *argv[]) {
         } else if ((pollStruct.pollfds[2].revents & POLLIN) != 0) { // UDP SOCKET
             memset(udp_recv, 0, 1700);
             rc = recvfrom(pollStruct.pollfds[2].fd, udp_recv, 1700, 0, &from, &addrlen);
-            std::string toSend = manageUdp((void*)udp_recv, (struct sockaddr_in*)&from);
+            std::string toSend = manageUdp((void*)udp_recv, (struct sockaddr_in*)&from, rc);
 
             if (toSend != "") {
                 const char* toSendChar = toSend.c_str();
-                memcpy(topic, udp_recv, 50);
+                memcpy(topic, udp_recv, 50); // CHECK THE TOPIC TO BE VALID FIRST, DONT DO UNNECESSARY OPERATIONS
                 topic[50] = '\0';
+                
+                // std::cout << "Topic : " << topic << std::endl << "SendString: " <<toSendChar << std::endl; 
  
                 for (const auto& entry : userSubscriptions) {
                     const userIdSubscriptions& value = entry.second;
