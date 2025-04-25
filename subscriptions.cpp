@@ -105,7 +105,7 @@ std::string applicationProtocol(int fd) {
   return buff;
 }
 
-/* function which sends data in loop */
+/* function which sends data in a loop */
 void sendTcp(int socketFd, const char* str) {
   uint16_t len = strlen(str);
   // allocate for the number of bytes sent
@@ -132,7 +132,7 @@ void sendTcp(int socketFd, const char* str) {
 }
 
 /* function which splits at the first '/' and places the first and second part
- * in the given parametres*/
+ * in the given parametres */
 void split_at_first_separator(const char* str, char* first_part,
                               char* rest_part) {
   const char* sep = strchr(str, '/');
@@ -152,7 +152,7 @@ void split_at_first_separator(const char* str, char* first_part,
   }
 }
 
-/* function which checks if a string is a regExp*/
+/* function which checks if a string is a regExp */
 bool isItRegEx(const char* exp) {
   char* expressionCopy = strdup(exp);
   if (expressionCopy == nullptr) {
@@ -203,6 +203,7 @@ class nonRegExSubscription : public Subscription {
 
   ~nonRegExSubscription() { free(expression); }
 
+  // function which checks if a pattern matches an expression
   bool match(char* expression, char* target) const override {
     return (strcmp(expression, target) == 0);
   }
@@ -225,6 +226,7 @@ class regExSubscription : public Subscription {
 
   ~regExSubscription() { free(expression); }
 
+  // function which decides if a regEx matches a pattern
   bool match(char* expression, char* target) const override {
     // base cases
     if ((expression[0] == '\0' && target[0] != '\0') ||

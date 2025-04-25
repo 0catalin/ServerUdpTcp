@@ -21,6 +21,8 @@
 
 struct pollAdjustable pollStruct;
 
+/* Converts a uint16_t value to a string with up to two decimal places,
+trimming the rest if longer. */
 std::string convertTo2Decimals(uint16_t elem) {
   std::string s = std::to_string(elem * 1.0 / 100);
   size_t dot = s.find('.');
@@ -30,8 +32,8 @@ std::string convertTo2Decimals(uint16_t elem) {
   return s;
 }
 
-/* function which gets called when one of the 3 signals is trying to kill out
- * program */
+/* function which gets called when one of the 3 signals is trying to kill our
+  program */
 void shutdown_server(int signum) {
   std::cerr << "\nWe received signal " << signum
             << " the server and its clients will be shut down" << std::endl;

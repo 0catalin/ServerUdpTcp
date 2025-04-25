@@ -1,4 +1,4 @@
-                                            Tema 2 PCom -> server UDP + TCP
+                                            Assignment 2 PCom -> UDP + TCP server
 
 
 
@@ -9,7 +9,7 @@
 the actual message (uint16_t). In the sendTcp function I simply convert the length into network byte order and send the 
 whole string. When I send I send until the bytes sent are equal to the length of the string. When I receive, I receive 
 2 bytes, convert back to host order, then receive until the amount received is the initial calculated length (in 
-applicationProtocol function)
+applicationProtocol function).
 
 
 
@@ -46,16 +46,19 @@ socket is going to send us the packet.
     - in binding sockets
     - in listening on tcp socket
     - in poll
+
         Cases treated by ERROR macro:
     - when we need to realloc the poll structure for another fd
     - for all the other times when we need to allocate memory with malloc, realloc or strdup
     - when we need to alocate to insert new subscriptions
     - when we receive a new connection and connect fails us
+
         In functions
     - in applicationProtocol when we receive EOF or error we can't close the server, we return an empty string and evaluate it in 
 the caller of the function
-    - manageUdp which checks if the udp packet was successfully transmitted
-    - in validateMessage where we check if a client sent something worth sending to the server
+    - manageUdp which checks if the udp packet was successfully transmitted (WE ONLY DROP IT IF WE REALLY CAN'T KNOW THE 
+PACKET CONSTRUCTION), otherwise we want the client to receive the data, even if it is a bit modified
+    - in validateMessage where we check if a client sent something worth sending to the server (ALSO CHECK AGAINST SERVER BUFFER OVERFLOW)
 
 
 
@@ -75,7 +78,7 @@ can always change fd and I either had one or the other, needing both.
 
         I needed to use a global variable because I needed all my clients to shutdown gracefully when the server stopped because of
     other actions (not a simple 'exit'). So I used signal handlers. They can't take parameters and they needed the structure to call 
-    its function, and that is the justification of using 1 global variable.
+    its function, and that is the justification of using 1 global variable. I did the same in both the server and client.
 
 
 
@@ -118,6 +121,17 @@ reached the end, the user never 'touched' that subject.
     I used the macro DIE which exits the program and prints a message if a condition is met.
     I used the macro ERROR which prints the given message at stderr.
 
+
+
+    Memory
+
+    The memory cleanup will always be done in both the client and server, along with the file descriptors.
+
+
+
+    Coding Style
+
+    The project follows the Google C++ Style Guide for consistency, readability, and maintainability.
 
 
 

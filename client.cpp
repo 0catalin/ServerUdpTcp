@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <cmath>
+#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -15,8 +16,20 @@
 #include "subscriptions.h"
 #include "utils.h"
 
+struct pollAdjustable pollStruct;
+
+/* function which gets called when one of the 3 signals is trying to kill our
+  program */
+void shutdown_client(int signum) {
+  std::cerr << "\nWe received signal " << signum
+            << " the server and its clients will be shut down" << std::endl;
+  pollStruct.freeMemory();
+  DIE(1, "forced shutdown :) ");
+}
+
 /* function used to validate a message by a user */
 bool validateMessage(char* str) {
+  if (strlen(str) > 51) return false;  // preventing buffer overflow in server
   if (str[0] != ' ') return false;
   for (size_t i = 1; i < strlen(str); i++) {
     if (str[i] == ' ' || (str[i] == str[i + 1] && str[i] == '/')) return false;
@@ -52,11 +65,17 @@ int main(int argc, char* argv[]) {
   sendTcp(socket_cli, argv[1]);
 
   // initialize poll
-  struct pollAdjustable pollStruct = initPoll();
+  pollStruct = initPoll();
 
   // add monitored fd's to the poll
   pollStruct.addFd(STDIN_FILENO);
   pollStruct.addFd(socket_cli);
+
+  // signal handlers to gracefully shut down the server
+  // when receiving Ctrl + C or other signals
+  std::signal(SIGINT, shutdown_client);
+  std::signal(SIGTERM, shutdown_client);
+  std::signal(SIGQUIT, shutdown_client);
 
   int val = 1;
 
@@ -71,7 +90,7 @@ int main(int argc, char* argv[]) {
 
     // we have input from stdin
     if ((pollStruct.pollfds[0].revents & POLLIN) != 0) {
-      fgets(stdin_buffer, 99, stdin);
+      fgets(stdin_buffer, 65, stdin);
       // remove newline
       stdin_buffer[strlen(stdin_buffer) - 1] = '\0';
       // if the client wants to exit
