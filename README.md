@@ -1,6 +1,6 @@
 
 
-                                                                        # Assignment 2 PCom -> UDP + TCP server
+# Assignment 2 PCom -> UDP + TCP server
 
 ## The Application protocol
 
